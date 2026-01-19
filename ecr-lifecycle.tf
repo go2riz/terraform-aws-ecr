@@ -1,5 +1,5 @@
-# resource "aws_ecr_lifecycle_policy" "default" {
-#   repository = "${aws_ecr_repository.default.name}"
+# resource "aws_ecr_lifecycle_policy" "this" {
+#   repository = aws_ecr_repository.this[0].name
 
 #   policy = <<EOF
 # {

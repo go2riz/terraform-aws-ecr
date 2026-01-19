@@ -1,43 +1,47 @@
-resource "aws_ecr_repository_policy" "default" {
-  repository = "${aws_ecr_repository.default.name}"
+data "aws_iam_policy_document" "repository" {
+  dynamic "statement" {
+    for_each = length(var.trust_accounts) > 0 ? [1] : []
+    content {
+      sid    = "AllowPull"
+      effect = "Allow"
 
-  policy = <<EOF
-{
-  "Version": "2008-10-17",
-  "Statement": [
-    {
-      "Sid": "AllowPull",
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": [
-          ${join(",", formatlist("\"arn:aws:iam::%s:root\"", var.trust_accounts))}
-        ]
-      },
-      "Action": [
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:BatchGetImage",
-        "ecr:BatchCheckLayerAvailability"
-      ]
-    },
-    {
-      "Sid": "AllowWriteMgmt",
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": [
-          "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
-        ]
-      },
-      "Action": [
+      principals {
+        type        = "AWS"
+        identifiers = [for id in var.trust_accounts : "arn:aws:iam::${id}:root"]
+      }
+
+      actions = [
         "ecr:GetDownloadUrlForLayer",
         "ecr:BatchGetImage",
         "ecr:BatchCheckLayerAvailability",
-        "ecr:PutImage",
-        "ecr:InitiateLayerUpload",
-        "ecr:UploadLayerPart",
-        "ecr:CompleteLayerUpload"
       ]
     }
-  ]
+  }
+
+  statement {
+    sid    = "AllowWriteMgmt"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+
+    actions = [
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:BatchGetImage",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:PutImage",
+      "ecr:InitiateLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:CompleteLayerUpload",
+    ]
+  }
 }
-EOF
+
+resource "aws_ecr_repository_policy" "this" {
+  count = var.create_repository ? 1 : 0
+
+  repository = aws_ecr_repository.this[0].name
+  policy     = data.aws_iam_policy_document.repository.json
 }
